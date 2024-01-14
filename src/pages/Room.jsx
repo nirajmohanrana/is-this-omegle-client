@@ -44,13 +44,15 @@ const RoomPage = () => {
       video: true,
     });
 
+    const myEmail = localStorage.getItem("myMail");
     const offer = await peer.getOffer();
-    socket.emit("user:call", { to: remoteSocketId, offer });
+    socket.emit("user:call", { email: myEmail, to: remoteSocketId, offer });
     setMyStream(stream);
   }, [remoteSocketId, socket]);
 
   const handleIncommingCall = useCallback(
-    async ({ from, offer }) => {
+    async ({ fromMail, from, offer }) => {
+      setRemoteEmail(fromMail);
       setRemoteSocketId(from);
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -153,7 +155,9 @@ const RoomPage = () => {
     };
   }, [handleIncomingMessages, roomId, socket]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+
     if (newMessage.trim() !== "") {
       const dynamicEventKey = `chat:message:${roomId}`;
       console.log(`Sending message to ${dynamicEventKey}`);
@@ -182,7 +186,7 @@ const RoomPage = () => {
         />
       </nav>
 
-      <div className="h-[calc(100vh-3rem)]">
+      <div className="px-2 h-[calc(100vh-3rem)]">
         <div>
           {remoteSocketId ? (
             <div className="text-right">
@@ -219,8 +223,8 @@ const RoomPage = () => {
         )}
 
         {remoteSocketId && (
-          <div className="flex gap-4">
-            <div className="w-1/3 flex flex-col justify-center gap-2">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="mb-2 md:w-1/3 flex md:flex-col justify-center gap-2">
               {remoteStream && (
                 <div className="border-2 border-accent rounded-md overflow-hidden">
                   <ReactPlayer
@@ -246,7 +250,10 @@ const RoomPage = () => {
             </div>
 
             <div className="flex-1 flex flex-col-reverse h-[calc(100vh-10rem)] border-2 border-text rounded-md overflow-hidden overflow-y-auto p-1">
-              <div className="flex items-center gap-x-4 px-4 py-2">
+              <form
+                className="flex items-center gap-x-4 px-4 py-2"
+                onSubmit={handleSendMessage}
+              >
                 <input
                   className="bg-accent appearance-none border-2 font-bold border-text rounded w-full py-2 px-4 text-background leading-tight focus:outline-none focus:bg-text focus:border-accent"
                   type="text"
@@ -255,13 +262,13 @@ const RoomPage = () => {
                 />
                 <button
                   className="h-full bg-secondary px-4 rounded"
-                  onClick={handleSendMessage}
+                  type="submit"
                 >
                   SEND
                 </button>
-              </div>
+              </form>
 
-              <div className="py-4">
+              <div className="py-4 h-[calc(100vh-28rem)]">
                 {messages.map((message, i) => {
                   return message.from === socket.id ? (
                     // ME
@@ -281,8 +288,8 @@ const RoomPage = () => {
                     // Other
                     <div key={i} className="w-full flex justify-start px-6">
                       <div className="flex justify-start flex-row-reverse items-center gap-x-1 w-fit bg-blue-600 rounded-lg my-2 px-2 py-1 relative">
-                        <p className="text-[10px] font-bold opacity-50 uppercase">
-                          Other
+                        <p className="text-[8px] font-bold opacity-50 uppercase">
+                          {remoteEmail}
                         </p>
                         <div className="text-base">{message.message}</div>
 

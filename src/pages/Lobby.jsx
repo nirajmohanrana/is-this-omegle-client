@@ -32,6 +32,8 @@ const Lobby = () => {
       e.preventDefault();
       const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+      localStorage.setItem("myMail", email);
+
       if (!validateEmail(email)) {
         toast("Please Enter Correct mail");
         return;
