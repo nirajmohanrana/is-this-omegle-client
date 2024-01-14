@@ -2,15 +2,39 @@ import { useEffect, useCallback, useState } from "react";
 import ReactPlayer from "react-player";
 import peer from "../service/peer";
 import { useSocket } from "../context/SocketProvider";
+import { useLocation } from "react-router-dom";
+import { toast } from "sonner";
+import { IoMdCopy } from "react-icons/io";
+import { TbCameraShare, TbPhoneCall } from "react-icons/tb";
+import { TbHomeOff } from "react-icons/tb";
 
 const RoomPage = () => {
   const socket = useSocket();
   const [remoteSocketId, setRemoteSocketId] = useState(null);
+  const [remoteEmail, setRemoteEmail] = useState(null);
   const [myStream, setMyStream] = useState();
   const [remoteStream, setRemoteStream] = useState();
 
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+
+  const location = useLocation();
+  const roomId = location.pathname.split("/")[2];
+
+  function copyToClipboard() {
+    navigator.clipboard.writeText(roomId).then(
+      () => {
+        toast(`Room Id: ${roomId} copied to clipboard`);
+      },
+      (err) => {
+        console.error("Unable to copy text to clipboard", err);
+      }
+    );
+  }
+
   const handleUserJoined = useCallback(({ email, id }) => {
-    console.log(`Email ${email} joined room`);
+    setRemoteEmail(email);
+    toast(`${email} Joined the Room`);
     setRemoteSocketId(id);
   }, []);
 
@@ -19,6 +43,7 @@ const RoomPage = () => {
       audio: true,
       video: true,
     });
+
     const offer = await peer.getOffer();
     socket.emit("user:call", { to: remoteSocketId, offer });
     setMyStream(stream);
@@ -109,35 +134,170 @@ const RoomPage = () => {
     handleNegoNeedFinal,
   ]);
 
+  const handleIncomingMessages = useCallback((message) => {
+    console.log("Incoming Message:", message);
+    setMessages((prevMessages) => [...prevMessages, message]);
+  }, []);
+
+  useEffect(() => {
+    const dynamicEventKey = `chat:message:${roomId}`;
+    console.log(`Setting up event listener for ${dynamicEventKey}`);
+
+    // Set up event listener for incoming chat messages
+    socket.on(dynamicEventKey, handleIncomingMessages);
+
+    return () => {
+      // Clean up on unmount
+      console.log(`Removing event listener for ${dynamicEventKey}`);
+      socket.off(dynamicEventKey, handleIncomingMessages);
+    };
+  }, [handleIncomingMessages, roomId, socket]);
+
+  const handleSendMessage = () => {
+    if (newMessage.trim() !== "") {
+      const dynamicEventKey = `chat:message:${roomId}`;
+      console.log(`Sending message to ${dynamicEventKey}`);
+      socket.emit("chat:message", {
+        room: roomId,
+        message: newMessage,
+        dynamicEventKey,
+      });
+      setNewMessage("");
+    }
+  };
+
   return (
-    <div>
-      <h1>Room Page</h1>
-      <h4>{remoteSocketId ? "Connected" : "No one in room"}</h4>
-      {myStream && <button onClick={sendStreams}>Send Stream</button>}
-      {remoteSocketId && <button onClick={handleCallUser}>CALL</button>}
-      {myStream && (
-        <>
-          <h1>My Stream</h1>
-          <ReactPlayer
-            playing
-            muted
-            height="100px"
-            width="200px"
-            url={myStream}
-          />
-        </>
-      )}
-      {remoteStream && (
-        <>
-          <h1>Remote Stream</h1>
-          <ReactPlayer
-            playing
-            height="100px"
-            width="200px"
-            url={remoteStream}
-          />
-        </>
-      )}
+    <div className="w-full md:max-w-7xl mx-auto">
+      <nav className="flex items-center px-5 bg-primary h-12 gap-x-2">
+        <h3 className="text-xl font-bold text-secondary flex-1">
+          IS THIS OMEGLE
+        </h3>
+
+        <p className="text-secondary text-sm">
+          Room Id: <span className="italic">{roomId}</span>
+        </p>
+        <IoMdCopy
+          className="text-secondary text-sm cursor-pointer"
+          onClick={copyToClipboard}
+        />
+      </nav>
+
+      <div className="h-[calc(100vh-3rem)]">
+        <div>
+          {remoteSocketId ? (
+            <div className="text-right">
+              <p className="text-xs opacity-50">
+                You&apos;re connected to {remoteEmail}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1 py-5">
+              <TbHomeOff className="text-3xl" />
+              <p className="text-xl">No one in room</p>
+            </div>
+          )}
+        </div>
+
+        {remoteSocketId && (
+          <button
+            onClick={handleCallUser}
+            className="flex justify-center items-center px-2 py-1 text-xs bg-gradient-to-b from-green-300 hover:from-green-600 to-green-600 hover:to-green-300 rounded-lg text-white font-bold gap-x-1 my-2"
+          >
+            <TbPhoneCall className="text-lg" />
+            CALL {remoteEmail}
+          </button>
+        )}
+
+        {myStream && (
+          <button
+            onClick={sendStreams}
+            className="flex justify-center items-center px-2 py-1 text-xs bg-gradient-to-b from-green-300 hover:from-green-600 to-green-600 hover:to-green-300 rounded-lg text-white font-bold gap-x-1 my-2"
+          >
+            <TbCameraShare className="text-lg" />
+            Send Stream
+          </button>
+        )}
+
+        {remoteSocketId && (
+          <div className="flex gap-4">
+            <div className="w-1/3 flex flex-col justify-center gap-2">
+              {remoteStream && (
+                <div className="border-2 border-accent rounded-md overflow-hidden">
+                  <ReactPlayer
+                    playing
+                    url={remoteStream}
+                    width="100%"
+                    height="100%"
+                  />
+                </div>
+              )}
+
+              {myStream && (
+                <div className="border-2 border-green-500 rounded-md overflow-hidden">
+                  <ReactPlayer
+                    playing
+                    muted
+                    url={myStream}
+                    width="100%"
+                    height="100%"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 flex flex-col-reverse h-[calc(100vh-10rem)] border-2 border-text rounded-md overflow-hidden overflow-y-auto p-1">
+              <div className="flex items-center gap-x-4 px-4 py-2">
+                <input
+                  className="bg-accent appearance-none border-2 font-bold border-text rounded w-full py-2 px-4 text-background leading-tight focus:outline-none focus:bg-text focus:border-accent"
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                />
+                <button
+                  className="h-full bg-secondary px-4 rounded"
+                  onClick={handleSendMessage}
+                >
+                  SEND
+                </button>
+              </div>
+
+              <div className="py-4">
+                {messages.map((message, i) => {
+                  return message.from === socket.id ? (
+                    // ME
+                    <div key={i} className="w-full flex justify-end px-6">
+                      <div className="flex justify-end items-center gap-x-1 w-fit bg-green-700 rounded-lg my-2 px-2 py-1 relative">
+                        <p className="text-[10px] font-bold opacity-50 uppercase">
+                          You
+                        </p>
+                        <div className="text-base">{message.message}</div>
+
+                        <div className="absolute w-3 overflow-hidden inline-block top-2 -right-2">
+                          <div className=" h-6 bg-green-700 rotate-45 transform origin-top-left" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Other
+                    <div key={i} className="w-full flex justify-start px-6">
+                      <div className="flex justify-start flex-row-reverse items-center gap-x-1 w-fit bg-blue-600 rounded-lg my-2 px-2 py-1 relative">
+                        <p className="text-[10px] font-bold opacity-50 uppercase">
+                          Other
+                        </p>
+                        <div className="text-base">{message.message}</div>
+
+                        <div className="absolute w-3 overflow-hidden inline-block top-2 -left-2">
+                          <div className=" h-6 bg-blue-600 -rotate-45 transform origin-top-right" />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
