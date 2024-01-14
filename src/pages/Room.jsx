@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import ReactPlayer from "react-player";
 import peer from "../service/peer";
 import { useSocket } from "../context/SocketProvider";
@@ -14,6 +14,8 @@ const RoomPage = () => {
   const [remoteEmail, setRemoteEmail] = useState(null);
   const [myStream, setMyStream] = useState();
   const [remoteStream, setRemoteStream] = useState();
+
+  const chatContainerRef = useRef();
 
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -170,6 +172,13 @@ const RoomPage = () => {
     }
   };
 
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   return (
     <div className="w-full md:max-w-7xl mx-auto">
       <nav className="flex items-center px-5 bg-primary h-12 gap-x-2">
@@ -226,7 +235,7 @@ const RoomPage = () => {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="mb-2 md:w-1/3 flex md:flex-col justify-center gap-2">
               {remoteStream && (
-                <div className="border-2 w-1/2 border-accent rounded-md overflow-hidden h-32">
+                <div className="border-2 w-1/2 md:w-full border-accent rounded-md overflow-hidden h-32 md:h-full">
                   <ReactPlayer
                     playing
                     url={remoteStream}
@@ -237,7 +246,7 @@ const RoomPage = () => {
               )}
 
               {myStream && (
-                <div className="border-2 w-1/2 border-green-500 rounded-md overflow-hidden h-32">
+                <div className="border-2 w-1/2 md:w-full border-green-500 rounded-md overflow-hidden h-32 md:h-full">
                   <ReactPlayer
                     playing
                     muted
@@ -249,7 +258,7 @@ const RoomPage = () => {
               )}
             </div>
 
-            <div className="flex-1 flex flex-col-reverse h-[calc(100vh-10rem)] border-2 border-text rounded-md overflow-hidden overflow-y-auto p-1">
+            <div className="flex-1 flex flex-col-reverse md:h-[calc(100vh-10rem)] border-2 border-text rounded-md overflow-hidden p-1">
               <form
                 className="flex items-center gap-x-4 px-4 py-2"
                 onSubmit={handleSendMessage}
@@ -268,7 +277,10 @@ const RoomPage = () => {
                 </button>
               </form>
 
-              <div className="py-4 h-[calc(100vh-28rem)]">
+              <div
+                className="py-4 h-[calc(100vh-30rem)] md:h-full overflow-y-auto"
+                ref={chatContainerRef}
+              >
                 {messages.map((message, i) => {
                   return message.from === socket.id ? (
                     // ME
