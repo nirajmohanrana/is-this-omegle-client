@@ -10,10 +10,7 @@ export const useSocket = () => {
 };
 
 export const SocketProvider = ({ children }) => {
-  const socket = useMemo(
-    () => io("https://git-push-u-origin-main-ekct.onrender.com", []),
-    []
-  );
+  const socket = useMemo(() => io(import.meta.env.VITE_API_SOCKET_URL, []), []);
 
   return (
     <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
